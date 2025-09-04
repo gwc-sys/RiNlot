@@ -73,6 +73,35 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'myengiportaldb',
+#         'USER': 'root',
+#         'PASSWORD': 'N!uos0G375',
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#     }
+# }
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT', cast=int),
+        'OPTIONS': {
+            'ssl': {
+                'ssl_ca': "django_backend/certs/ca.pem",
+                'ssl-mode': 'REQUIRED'
+            },
+            'connect_timeout': 30, 
+        }
+    }
+    
+}
 
 
 
