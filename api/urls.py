@@ -1,0 +1,16 @@
+from django.conf import settings
+from django.conf.urls.static import static
+from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
+from .Views.resourceviews import FileUploadView, DocumentDetailView
+from .Views.UserSignUpView import RegisterView, LoginView, LogoutView , me_view  # Import specific classes from userSignView.py
+urlpatterns = [
+    # path('resources/', ResourceListCreateView.as_view()),
+    path('upload/', FileUploadView.as_view()),
+    path('documents/<str:pk>/', DocumentDetailView.as_view()), 
+    path('register/', RegisterView.as_view(), name='register'),  
+    path('login/', LoginView.as_view(), name='login'),          
+    path('logout/', LogoutView.as_view(), name='logout'), 
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  
+    path('me/', me_view),
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
