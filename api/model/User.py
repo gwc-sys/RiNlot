@@ -63,19 +63,42 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.username
 
 class SessionCode(models.Model):
-    user = models.ForeignKey('api.User', on_delete=models.CASCADE)  # ✅ Using string reference
-    code = models.CharField(max_length=255, unique=True)
+    user = models.OneToOneField(
+        'api.User', 
+        on_delete=models.CASCADE,
+        unique=True,  # Explicit uniqueness
+        db_index=True  # Faster lookups
+    )
+    code = models.CharField(max_length=255, unique=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
-    is_active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField(db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.code}"
     
     def save(self, *args, **kwargs):
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(hours=2)
+            self.expires_at = timezone.now() + timedelta(days=30)   # Default 30 days
+        if not self.code:
+            self.code = self.generate_session_code()
         super().save(*args, **kwargs)
     
     def is_expired(self):
-        return timezone.now() > self.expires_at
+        from django.utils import timezone
+        return timezone.now() > self.expires_at or not self.is_active
+    
+    def refresh_expiration(self, hours=2):
+        """Refresh the expiration time"""
+        self.expires_at = timezone.now() + timedelta(hours=hours)
+        self.save()
+    
+    def deactivate(self):
+        """Deactivate the session code"""
+        self.is_active = False
+        self.save()
+    
+    @staticmethod
+    def generate_session_code():
+        import secrets
+        return secrets.token_urlsafe(32)

@@ -1,21 +1,30 @@
-# app/middleware.py
-from django.utils.deprecation import MiddlewareMixin
-from ..Middleware import UserMiddleware
-from django.utils import timezone  
+# middleware.py
+from django.http import JsonResponse
+from ..model.User import SessionCode
 
-class SessionCodeMiddleware(MiddlewareMixin):
-    def process_request(self, request):
-        session_code = request.COOKIES.get("session_code")
+class SessionCodeMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Skip for public endpoints
+        if request.path in ['/api/login/', '/api/register/']:
+            return self.get_response(request)
+        
+        session_code = request.COOKIES.get('session_code') or request.headers.get('X-Session-Code')
+        
         if session_code:
             try:
-                session = UserMiddleware.objects.get(code=session_code, is_active=True)
-                if session.expires_at < timezone.now():
+                session = SessionCode.objects.get(code=session_code, is_active=True)
+                
+                if not session.is_expired():
+                    request.user = session.user  # Attach user to request
+                    return self.get_response(request)
+                else:
                     session.is_active = False
                     session.save()
-                    request.session_code_valid = False
-                else:
-                    request.session_code_valid = True
-            except UserMiddleware.DoesNotExist:
-                request.session_code_valid = False
-        else:
-            request.session_code_valid = False
+                    
+            except SessionCode.DoesNotExist:
+                pass
+        
+        return JsonResponse({'error': 'Authentication required'}, status=401)

@@ -3,6 +3,7 @@ from pathlib import Path
 import mysql.connector
 import mysql.connector
 from decouple import config
+from pytz import timezone
 
 
 
@@ -37,6 +38,7 @@ AUTH_USER_MODEL = 'api.User'  # Update this line to point to the correct app and
 
 
 MIDDLEWARE = [
+     'corsheaders.middleware.CorsMiddleware', 
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -131,12 +133,17 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
-
 USE_I18N = True
 
+# TIME_ZONE = 'UTC'  # Database stores UTC
+# USE_TZ = True
+
+TIME_ZONE = 'Asia/Kolkata'  # For India (change to your timezone)
 USE_TZ = True
 
+# Convert to local time when showing to users
+def get_local_time(utc_time):
+    return timezone.localtime(utc_time)
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -184,7 +191,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1",        
     "http://localhost",        
     "https://engiportal.onrender.com",
-    "https://stackhack.live"
+    "https://stackhack.live",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://engisolution.onrender.com",
@@ -193,6 +202,20 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://0.0.0.0:8000",
     "https://stackhack.live"
+]
+
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization', 
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-session-code',  # ← YOU MUST ADD THIS LINE
 ]
 
 import logging
@@ -228,11 +251,12 @@ LOGGING = {
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-}
 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ]
+}
 
 

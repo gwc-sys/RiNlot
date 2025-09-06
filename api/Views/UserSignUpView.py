@@ -22,11 +22,10 @@ class RegisterView(APIView):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            refresh = RefreshToken.for_user(user)
+            # ✅ No session code created until login
             return Response({
                 'user': serializer.data,
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
+                'message': 'Registration successful. Please login.'
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -56,27 +55,37 @@ class LoginView(APIView):
                 user = None
 
         if user:
-            refresh = RefreshToken.for_user(user)
-            session_code = str(uuid.uuid4())
-            expiry = timezone.now() + timedelta(hours=2)
+            # ✅ Get or create session code (reuses existing active code)
+            session_obj, created = SessionCode.objects.get_or_create(
+                user=user,
+                defaults={'is_active': True}
+            )
+            
+            # ✅ If exists but inactive, reactivate it
+            if not created and not session_obj.is_active:
+                session_obj.is_active = True
+                session_obj.expires_at = timezone.now() + timedelta(days=30)
+                session_obj.save()
+            # ✅ If exists and active, refresh expiration
+            elif not created:
+                session_obj.expires_at = timezone.now() + timedelta(days=30)
+                session_obj.save()
 
-            SessionCode.objects.create(user=user, code=session_code, expires_at=expiry)
-
-            response = JsonResponse({
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
+            response = Response({
                 'user': UserSerializer(user).data,
+                'session_code': session_obj.code,
+                'expires_at': session_obj.expires_at,
                 'message': 'Login successful'
             })
 
-            # Secure cookie settings
+            # ✅ Set session code cookie
             response.set_cookie(
                 key='session_code',
-                value=session_code,
+                value=session_obj.code,
                 httponly=True,
-                secure=False,       # Ensures cookie is sent only over HTTPS
+                secure=True,       # Change to True in production
                 samesite='Strict',
-                max_age=7200       # 2 hours
+                max_age=2592000      # 30 days
             )
 
             return response
@@ -88,42 +97,73 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def post(self, request):
         try:
-            # Blacklist JWT
-            refresh_token = request.data.get("refresh")
-            if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
+            session_code = request.COOKIES.get("session_code") or request.data.get("session_code")
+            
+            if not session_code:
+                return Response(
+                    {'error': 'Session code required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            # Invalidate session code
-            session_code = request.COOKIES.get("session_code")
-            if session_code:
-                SessionCode.objects.filter(
-                    code=session_code,
-                    user=request.user,
-                    is_active=True
-                ).update(is_active=False)
+            # ✅ Deactivate session code
+            sessions = SessionCode.objects.filter(
+                code=session_code,
+                is_active=True
+            )
+            
+            if sessions.exists():
+                session = sessions.first()
+                session.is_active = False
+                session.expires_at = timezone.now()  
+                session.save()  
 
             # Clear cookie
             response = Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
-            response.delete_cookie("session_code", secure=True)  # Also secure on deletion
+            response.delete_cookie("session_code")
             return response
+
 
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+        
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def me_view(request):
-    user = request.user
-    # Use getattr to avoid AttributeError if the field doesn't exist
-    full_name = getattr(user, 'full_name', None) or getattr(user, 'name', None) or user.username
+    # Get session code from cookie or header
+    session_code = request.COOKIES.get('session_code') or request.headers.get('X-Session-Code')
+    
+    if not session_code:
+        return Response(
+            {'error': 'Session code required'}, 
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
-    return Response({
-        'fullName': full_name
-    })
+    try:
+        # ✅ Validate session code
+        session = SessionCode.objects.get(code=session_code, is_active=True)
+        
+        if session.is_expired():
+            session.is_active = False
+            session.save()
+            return Response(
+                {'error': 'Session expired'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        user = session.user
+        full_name = getattr(user, 'full_name', None) or user.username
 
+        return Response({
+            'fullName': full_name,
+            'username': user.username,
+            'email': user.email,
+            'session_expires_at': session.expires_at
+        })
+
+    except SessionCode.DoesNotExist:
+        return Response(
+            {'error': 'Invalid session'}, 
+            status=status.HTTP_401_UNAUTHORIZED
+        )
