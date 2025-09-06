@@ -115,7 +115,7 @@ class DocumentListView(generics.ListAPIView):
     def get_queryset(self):
         queryset = Document.objects.all().order_by('-uploaded_at')
         
-        # Add filters from query parameters
+        # Add filters from query parameters..
         college = self.request.query_params.get('college', None)
         branch = self.request.query_params.get('branch', None)
         resource_type = self.request.query_params.get('resource_type', None)
