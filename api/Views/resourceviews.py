@@ -2,24 +2,26 @@ from django.shortcuts import render
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser
-from ..model.resourcemodels import  Document
-from ..Serializers.resourceserializers import  DocumentSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+from ..model.resourcemodels import Document
+from ..Serializers.resourceserializers import DocumentSerializer
 import logging
 import cloudinary.uploader
-import cloudinary.api
-from django.shortcuts import get_object_or_404
-import hashlib
-from datetime import timedelta
 from django.utils import timezone
+from datetime import timedelta
 from django.conf import settings
 
+logger = logging.getLogger(__name__)
+
 class ResourceListCreateView(generics.ListCreateAPIView):
+    """List all resources or create new one"""
     queryset = Document.objects.all().order_by('-uploaded_at')
     serializer_class = DocumentSerializer
+    parser_classes = [MultiPartParser, FormParser]
 
 class FileUploadView(APIView):
-    parser_classes = [MultiPartParser]
+    """Handle file uploads to Cloudinary"""
+    parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, format=None):
         try:
@@ -30,72 +32,106 @@ class FileUploadView(APIView):
                 )
 
             file = request.FILES['file']
+            filename = file.name
+            
+            # Extract file extension
+            file_extension = filename.split('.')[-1].lower() if '.' in filename else 'unknown'
+            
+            # Upload to Cloudinary
             upload_result = cloudinary.uploader.upload(
                 file,
-                resource_type='auto',
+                resource_type='raw',  # Use 'raw' for documents
                 folder='documents/',
-                public_id=file.name.rsplit('.', 1)[0]
+                public_id=filename.rsplit('.', 1)[0]  # Remove extension from public_id
             )
 
-            document = Document.objects.create(
-                title=request.data.get('title', upload_result['original_filename']),
-                name=request.data.get('name', upload_result['original_filename']),
-                description=request.data.get('description', ''),
-                file_url=upload_result['secure_url'],  # Store Cloudinary URL here
-                public_id=upload_result['public_id'],
-                file_type=file.name.split('.')[-1].lower(),
-                college=request.data.get('college', ''),
-                branch=request.data.get('branch', ''),
-                resource_type=upload_result['resource_type']
-            )
+            # Create document instance
+            document_data = {
+                'title': request.data.get('title', upload_result['original_filename']),
+                'name': request.data.get('name', upload_result['original_filename']),
+                'description': request.data.get('description', ''),
+                'file_url': upload_result['secure_url'],
+                'public_id': upload_result['public_id'],
+                'file_type': file_extension,
+                'college': request.data.get('college', ''),
+                'branch': request.data.get('branch', ''),
+                'resource_type': request.data.get('resource_type', 'Document'),
+                'file': file  # Keep the file for size detection
+            }
 
-            serializer = DocumentSerializer(document)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            # Use serializer for validation and creation
+            serializer = DocumentSerializer(data=document_data)
+            if serializer.is_valid():
+                document = serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(
+                    {"error": "Validation failed", "details": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         except Exception as e:
-            logging.error(f"Cloudinary upload error: {str(e)}")
+            logger.error(f"File upload error: {str(e)}")
             return Response(
                 {"error": "File upload failed", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 class DocumentDetailView(APIView):
-    def get(self, request, pk, format=None):
+    """Get specific document or filtered list"""
+    
+    def get(self, request, pk=None, format=None):
         try:
-            # Calculate the date one week ago
-            one_week_ago = timezone.now() - timedelta(days=7)
-            
-            # Get all documents uploaded in the last week (no file_type filter)
-            queryset = Document.objects.filter(
-                uploaded_at__gte=one_week_ago
-            )
-            
-            # Further filter if pk is provided
-            if pk and pk == 'all':
-                queryset = queryset.filter(name__icontains=pk)
-            
-            # Serialize the data
-            serializer = DocumentSerializer(queryset, many=True)
-            documents_data = serializer.data
-            
-            # Enhance each document with Cloudinary URL
-            for doc in documents_data:
-                if 'cloudinary_id' in doc:
-                    doc['cloudinary_url'] = self.generate_cloudinary_url(doc['cloudinary_id'])
-            
-            return Response(documents_data, status=status.HTTP_200_OK)
+            if pk == 'all':
+                # Return all documents
+                queryset = Document.objects.all().order_by('-uploaded_at')
+            elif pk == 'recent':
+                # Return documents from last week
+                one_week_ago = timezone.now() - timedelta(days=7)
+                queryset = Document.objects.filter(uploaded_at__gte=one_week_ago).order_by('-uploaded_at')
+            else:
+                # Return specific document by ID
+                queryset = Document.objects.filter(id=pk)
+                if not queryset.exists():
+                    return Response(
+                        {"error": "Document not found"},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+
+            serializer = DocumentSerializer(queryset, many=(pk != 'all' and pk != 'recent' and not queryset.count() == 1))
+            return Response(serializer.data, status=status.HTTP_200_OK)
             
         except Exception as e:
-            logging.error(f"Document retrieval error: {str(e)}")
+            logger.error(f"Document retrieval error: {str(e)}")
             return Response(
                 {"error": "Document retrieval failed", "details": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
-    
-    def generate_cloudinary_url(self, public_id):
-        """Generate Cloudinary URL from public_id"""
-        return f"https://res.cloudinary.com/{settings.CLOUDINARY_STORAGE['CLOUD_NAME']}/raw/upload/{public_id}"
 
 class DocumentListView(generics.ListAPIView):
+    """List all documents with filtering support"""
+    serializer_class = DocumentSerializer
+    
+    def get_queryset(self):
+        queryset = Document.objects.all().order_by('-uploaded_at')
+        
+        # Add filters from query parameters
+        college = self.request.query_params.get('college', None)
+        branch = self.request.query_params.get('branch', None)
+        resource_type = self.request.query_params.get('resource_type', None)
+        
+        if college:
+            queryset = queryset.filter(college__icontains=college)
+        if branch:
+            queryset = queryset.filter(branch__icontains=branch)
+        if resource_type:
+            queryset = queryset.filter(resource_type__icontains=resource_type)
+            
+        return queryset
+
+# Add this view for individual document operations
+class DocumentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a specific document"""
     queryset = Document.objects.all()
     serializer_class = DocumentSerializer
+    parser_classes = [MultiPartParser, FormParser]

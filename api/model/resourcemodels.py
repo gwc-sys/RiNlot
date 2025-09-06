@@ -1,6 +1,6 @@
 from django.db import models
 from cloudinary_storage.storage import RawMediaCloudinaryStorage
-from ..model.User import User, SessionCode
+import os
 
 class Document(models.Model):
     title = models.CharField(max_length=255)
@@ -16,7 +16,43 @@ class Document(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'api_document'  # Explicitly set table name
+        db_table = 'api_document'
+        ordering = ['-uploaded_at']
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        # Auto-detect file type if not set
+        if self.file and (not self.file_type or self.file_type == 'unknown'):
+            self.detect_file_type()
+        super().save(*args, **kwargs)
+
+    def detect_file_type(self):
+        """Detect file type from filename or file_url"""
+        if self.file and hasattr(self.file, 'name'):
+            filename = self.file.name
+        elif self.file_url:
+            filename = self.file_url
+        else:
+            self.file_type = 'unknown'
+            return
+
+        # Extract extension safely
+        if '.' in filename:
+            extension = filename.split('.')[-1].lower()
+            
+            # Map to consistent file types that frontend expects
+            file_type_map = {
+                'pdf': 'pdf',
+                'doc': 'doc', 'docx': 'docx',
+                'txt': 'txt',
+                'ppt': 'ppt', 'pptx': 'pptx',
+                'zip': 'zip',
+                'jpg': 'jpg', 'jpeg': 'jpeg', 'png': 'png',
+                'gif': 'gif', 'webp': 'webp',
+                'xls': 'xls', 'xlsx': 'xlsx', 'csv': 'csv'
+            }
+            self.file_type = file_type_map.get(extension, extension)
+        else:
+            self.file_type = 'unknown'
