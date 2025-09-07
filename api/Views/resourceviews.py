@@ -10,6 +10,7 @@ import cloudinary.uploader
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
+from rest_framework.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,21 @@ class FileUploadView(APIView):
     """Handle file uploads to Cloudinary"""
     parser_classes = [MultiPartParser, FormParser]
 
+    def validate_file_type(self, file):
+        """Validate file type before uploading to Cloudinary"""
+        valid_extensions = [
+            'pdf', 'doc', 'docx', 'txt', 'ppt', 'pptx', 'zip',
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'xls', 'xlsx', 'csv'
+        ]
+        
+        if hasattr(file, 'name') and '.' in file.name:
+            extension = file.name.split('.')[-1].lower()
+            if extension not in valid_extensions:
+                raise ValidationError(
+                    f"Unsupported file type. Allowed: {', '.join(valid_extensions)}"
+                )
+        return True
+
     def post(self, request, format=None):
         try:
             if 'file' not in request.FILES:
@@ -32,20 +48,29 @@ class FileUploadView(APIView):
                 )
 
             file = request.FILES['file']
-            filename = file.name
             
+            # Validate file type before uploading to Cloudinary
+            try:
+                self.validate_file_type(file)
+            except ValidationError as e:
+                return Response(
+                    {"error": "Validation failed", "details": {"file": [str(e)]}},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            filename = file.name
             # Extract file extension
             file_extension = filename.split('.')[-1].lower() if '.' in filename else 'unknown'
             
             # Upload to Cloudinary
             upload_result = cloudinary.uploader.upload(
                 file,
-                resource_type='raw',  # Use 'raw' for documents
+                resource_type='raw',
                 folder='documents/',
-                public_id=filename.rsplit('.', 1)[0]  # Remove extension from public_id
+                public_id=filename.rsplit('.', 1)[0]
             )
 
-            # Create document instance
+            # Create document instance without the file field
             document_data = {
                 'title': request.data.get('title', upload_result['original_filename']),
                 'name': request.data.get('name', upload_result['original_filename']),
@@ -55,8 +80,10 @@ class FileUploadView(APIView):
                 'file_type': file_extension,
                 'college': request.data.get('college', ''),
                 'branch': request.data.get('branch', ''),
+                'year': request.data.get('year', ''),
+                'semester': request.data.get('semester', ''),
+                'subject': request.data.get('subject', ''),
                 'resource_type': request.data.get('resource_type', 'Document'),
-                'file': file  # Keep the file for size detection
             }
 
             # Use serializer for validation and creation

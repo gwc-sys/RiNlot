@@ -1,4 +1,4 @@
 from .resourceserializers import DocumentSerializer
 from .UserSerializer import UserSerializer
-from .UserProfileserializers import UserProfileSerializer, ProfilePictureSerializer
-__all__ = ["UserSerializer", "DocumentSerializer", "UserProfileSerializer", "ProfilePictureSerializer"]
+from .UserProfileserializers import UserProfileSerializer 
+__all__ = ["UserSerializer", "DocumentSerializer", "UserProfileSerializer"]
