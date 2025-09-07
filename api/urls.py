@@ -41,7 +41,7 @@ urlpatterns = [
     
     # Resource endpoints
     path('upload/', FileUploadView.as_view(), name='file-upload'),
-    path('documents/<str:pk>/', DocumentDetailView.as_view(), name='document-detail'),
+    path('documents/<pk>/', DocumentDetailView.as_view(), name='document-detail'),
 ]
 
 # Serve media files during development

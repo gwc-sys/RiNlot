@@ -156,9 +156,12 @@ def me_view(request):
         full_name = getattr(user, 'full_name', None) or user.username
 
         return Response({
-            'fullName': full_name,
+            'id': user.id,
             'username': user.username,
             'email': user.email,
+            'is_superuser': user.is_superuser,  # ✅ Added
+            'is_staff': user.is_staff,          # ✅ Added
+            'fullName': full_name,
             'session_expires_at': session.expires_at
         })
 
@@ -166,4 +169,4 @@ def me_view(request):
         return Response(
             {'error': 'Invalid session'}, 
             status=status.HTTP_401_UNAUTHORIZED
-        )
+        )   

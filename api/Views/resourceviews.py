@@ -86,9 +86,8 @@ class DocumentDetailView(APIView):
                 # Return all documents
                 queryset = Document.objects.all().order_by('-uploaded_at')
             elif pk == 'recent':
-                # Return documents from last week
-                one_week_ago = timezone.now() - timedelta(days=7)
-                queryset = Document.objects.filter(uploaded_at__gte=one_week_ago).order_by('-uploaded_at')
+                # Return the 10 most recently uploaded documents
+                queryset = Document.objects.all().order_by('-uploaded_at')[:10]
             else:
                 # Return specific document by ID
                 queryset = Document.objects.filter(id=pk)
@@ -98,7 +97,11 @@ class DocumentDetailView(APIView):
                         status=status.HTTP_404_NOT_FOUND
                     )
 
-            serializer = DocumentSerializer(queryset, many=(pk != 'all' and pk != 'recent' and not queryset.count() == 1))
+            if pk in ['all', 'recent']:
+                serializer = DocumentSerializer(queryset, many=True)
+            else:
+                serializer = DocumentSerializer(queryset, many=False)
+                
             return Response(serializer.data, status=status.HTTP_200_OK)
             
         except Exception as e:
