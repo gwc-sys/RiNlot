@@ -24,7 +24,15 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
-from .Views.resourceviews import FileUploadView, DocumentDetailView
+from .Views.resourceviews import (
+    ResourceListCreateView,
+    FileUploadView,
+    DocumentDetailView,
+    DocumentListView,
+    DocumentRetrieveUpdateDestroyView,
+    DocumentDeleteView,
+    DocumentSearchView
+)
 from .Views.UserSignUpView import RegisterView, LoginView, LogoutView, me_view  
 from .Views.UserProfileView import UserProfileView, ProfilePictureUploadView
 
@@ -40,8 +48,13 @@ urlpatterns = [
     path('profile/picture/', ProfilePictureUploadView.as_view(), name='profile-picture'),
     
     # Resource endpoints
+    path('resources/', ResourceListCreateView.as_view(), name='resource-list-create'),
     path('upload/', FileUploadView.as_view(), name='file-upload'),
+    path('documents/', DocumentListView.as_view(), name='document-list'),
+    path('documents/search/', DocumentSearchView.as_view(), name='document-search'),
     path('documents/<pk>/', DocumentDetailView.as_view(), name='document-detail'),
+    path('documents/<pk>/edit/', DocumentRetrieveUpdateDestroyView.as_view(), name='document-edit'),
+    path('documents/<pk>/delete/', DocumentDeleteView.as_view(), name='document-delete'),
 ]
 
 # Serve media files during development

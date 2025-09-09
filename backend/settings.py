@@ -1,58 +1,70 @@
+"""
+Django settings for backend project.
+"""
+
 import os
+import logging
 from pathlib import Path
-import mysql.connector
-import mysql.connector
 from decouple import config
 from pytz import timezone
 
-
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Build paths inside the project like this: BASE_DIR / 'subdir'
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-fhipcgf5kce18*wz5e7$cu!s59&(j%1cv7c!fcaxa4_6^13!8%'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
-
+# Security Settings
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-fhipcgf5kce18*wz5e7$cu!s59&(j%1cv7c!fcaxa4_6^13!8%')
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 # Application definition
-
 INSTALLED_APPS = [
-    'api',
+    # Django core apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
+    # Third-party apps
     'cloudinary',
     'cloudinary_storage',
     'rest_framework', 
-    'corsheaders'
+    'corsheaders',
+    
+    # Local apps
+    'api',
 ]
 
-AUTH_USER_MODEL = 'api.User'  # Update this line to point to the correct app and model
-
-
 MIDDLEWARE = [
-     'corsheaders.middleware.CorsMiddleware', 
-    'corsheaders.middleware.CorsMiddleware',
+    # Security middleware
     'django.middleware.security.SecurityMiddleware',
+    
+    # Session middleware
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # CORS middleware (placed before CommonMiddleware)
     'corsheaders.middleware.CorsMiddleware',
+    
+    # Common middleware
     'django.middleware.common.CommonMiddleware',
+    
+    # CSRF protection
+    'django.middleware.csrf.CsrfViewMiddleware',
+    
+    # Authentication middleware
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    
+    # Message middleware
+    'django.contrib.messages.middleware.MessageMiddleware',
+    
+    # Clickjacking protection
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
+WSGI_APPLICATION = 'backend.wsgi.application'
 
+# Templates
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -68,24 +80,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'backend.wsgi.application'
-
-
 # Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'myengiportaldb',
-#         'USER': 'root',
-#         'PASSWORD': 'N!uos0G375',
-#         'HOST': 'localhost',
-#         'PORT': '3306',
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -93,25 +88,18 @@ DATABASES = {
         'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT', cast=int),
+        'PORT': config('DB_PORT', default=3306, cast=int),
         'OPTIONS': {
             'ssl': {
-                'ssl_ca': "django_backend/certs/ca.pem",
+                'ssl_ca': BASE_DIR / "certs/ca.pem",
                 'ssl-mode': 'REQUIRED'
             },
             'connect_timeout': 30, 
         }
     }
-    
 }
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
-
-
 # Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -127,52 +115,58 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
-
-# TIME_ZONE = 'UTC'  # Database stores UTC
-# USE_TZ = True
-
-TIME_ZONE = 'Asia/Kolkata'  # For India (change to your timezone)
 USE_TZ = True
 
-# Convert to local time when showing to users
-def get_local_time(utc_time):
-    return timezone.localtime(utc_time)
-
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+# Media files
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
+# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Custom user model
+AUTH_USER_MODEL = 'api.User'
+
+# REST Framework configuration
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+}
+
+# File upload settings
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800   # 50MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800   # 50MB
+
 
 # Cloudinary settings
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'dthdececa',
-    'API_KEY': '354378824539823',
-    'API_SECRET': 'EWuAT6UFwupVh1E4TtJtILeUszY',
+    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME', default='dthdececa'),
+    'API_KEY': config('CLOUDINARY_API_KEY', default='354378824539823'),
+    'API_SECRET': config('CLOUDINARY_API_SECRET', default='EWuAT6UFwupVh1E4TtJtILeUszY'),
     'SECURE': True
 }
-
-
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-# For production (specific domain)
-ALLOWED_HOSTS = ['engiportal.onrender.com']
 
-
-# Recommended approach for Render.com deployments
+# Host/domain names that this site can serve
 ALLOWED_HOSTS = [
     'engiportal.onrender.com',
     '.onrender.com',
@@ -181,20 +175,21 @@ ALLOWED_HOSTS = [
     '0.0.0.0',
     'stackhack.live',
 ]
+
+# CORS settings
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
     "https://engisolution.onrender.com",
-    "http://localhost:5173",   
     "http://127.0.0.1",        
     "http://localhost",        
     "https://engiportal.onrender.com",
     "https://stackhack.live",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
 ]
+
 CSRF_TRUSTED_ORIGINS = [
     "https://engisolution.onrender.com",
     "http://localhost:5173",
@@ -203,7 +198,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://0.0.0.0:8000",
     "https://stackhack.live"
 ]
-
 
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -215,11 +209,10 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'x-session-code',  # ← YOU MUST ADD THIS LINE
+    'x-session-code',  # Custom header
 ]
 
-import logging
-
+# Logging configuration
 IGNORABLE_404_URLS = [
     r'^\.well-known/appspecific/com\.chrome\.devtools\.json$',
 ]
@@ -247,16 +240,7 @@ LOGGING = {
     }
 }
 
-# File upload size limits
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
-
-
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-        "rest_framework.authentication.SessionAuthentication",
-    ]
-}
-
-
+# Utility function for time conversion
+def get_local_time(utc_time):
+    """Convert UTC time to local time."""
+    return timezone.localtime(utc_time)

@@ -1,90 +1,135 @@
 from rest_framework import serializers
+from django.core.validators import FileExtensionValidator
 from ..model.resourcemodels import Document
 
 class DocumentSerializer(serializers.ModelSerializer):
-    file_url = serializers.SerializerMethodField()
-    file_type = serializers.SerializerMethodField()
+    file_url = serializers.CharField(required=True, allow_blank=False)
+    file_type = serializers.CharField(required=True, allow_blank=False)
+    public_id = serializers.CharField(required=True, allow_blank=False)
     size = serializers.SerializerMethodField()
     upload_date = serializers.DateTimeField(source='uploaded_at', read_only=True)
 
     class Meta:
         model = Document
         fields = [
-            'id',
-            'file',           # Make this optional
-            'title',          # Resource title (required)
-            'college',        # College name (required)
-            'branch',         # Branch/Department (required)
-            'year',           # Academic year (required)
-            'semester',       # Semester (required)
-            'subject',        # Subject name (required)
-            'resource_type',  # Type of resource (required)
-            'description',    # Description (optional)
-            'file_type',
-            'file_url',
-            'public_id',
-            'uploaded_at',
-            'upload_date',
-            'size',
+            'id', 'file', 'title', 'name', 'college', 'branch', 'year', 'semester',
+            'subject', 'resource_type', 'description', 'file_type', 'file_url',
+            'public_id', 'uploaded_at', 'upload_date', 'size'
         ]
         extra_kwargs = {
-            'file': {'required': False},  # Make file optional
-            'description': {'required': False},
+            'file': {
+                'required': True,  # File is required
+                'validators': [FileExtensionValidator(
+                    allowed_extensions=['pdf', 'doc', 'docx', 'txt', 'ppt', 'pptx', 'zip',
+                                      'jpg', 'jpeg', 'png', 'gif', 'webp', 'xls', 'xlsx', 'csv']
+                )]
+            },
+            'title': {'required': True, 'allow_blank': False},
+            'name': {'required': True, 'allow_blank': False},  # Name is required
+            'college': {'required': True, 'allow_blank': False},
+            'branch': {'required': True, 'allow_blank': False},
+            'year': {'required': True, 'allow_blank': False},
+            'semester': {'required': True, 'allow_blank': False},
+            'subject': {'required': True, 'allow_blank': False},
+            'resource_type': {'required': True, 'allow_blank': False},
+            'description': {'required': True, 'allow_blank': False},  # Description is required
+            'file_url': {'required': True, 'allow_blank': False},  # File URL is required
+            'public_id': {'required': True, 'allow_blank': False},  # Public ID is required
         }
-        read_only_fields = ['file_url', 'public_id', 'uploaded_at']
+        read_only_fields = ['uploaded_at']
 
-    def get_file_url(self, obj):
-        """Get file URL - prefer file_url field, fallback to file.url"""
-        if obj.file_url:
-            return obj.file_url
-        return obj.file.url if obj.file else None
+    def validate(self, data):
+        """
+        Comprehensive validation for the entire document
+        """
+        errors = {}
+        
+        # Validate file size if file is provided
+        file = data.get('file')
+        if file and hasattr(file, 'size'):
+            max_size = 50 * 1024 * 1024  # 50MB
+            if file.size > max_size:
+                errors['file'] = [f'File size must be less than {max_size//1024//1024}MB']
+        
+        # Validate year and semester choices
+        year = data.get('year')
+        if year and year not in dict(Document.YEAR_CHOICES):
+            errors['year'] = [f'Invalid year selection. Valid choices: {list(dict(Document.YEAR_CHOICES).keys())}']
+        
+        semester = data.get('semester')
+        if semester and semester not in dict(Document.SEMESTER_CHOICES):
+            errors['semester'] = [f'Invalid semester selection. Valid choices: {list(dict(Document.SEMESTER_CHOICES).keys())}']
+        
+        resource_type = data.get('resource_type')
+        if resource_type and resource_type not in dict(Document.RESOURCE_TYPES):
+            errors['resource_type'] = [f'Invalid resource type selection. Valid choices: {list(dict(Document.RESOURCE_TYPES).keys())}']
+        
+        # Validate required string fields are not empty
+        required_string_fields = ['title', 'name', 'college', 'branch', 'subject', 'description', 'file_url', 'public_id']
+        for field in required_string_fields:
+            value = data.get(field)
+            if value and isinstance(value, str) and not value.strip():
+                errors[field] = [f'{field.replace("_", " ").title()} cannot be empty or whitespace only']
+            elif not value:
+                errors[field] = [f'{field.replace("_", " ").title()} is required']
+        
+        if errors:
+            raise serializers.ValidationError(errors)
+        
+        return data
 
-    def get_file_type(self, obj):
-        """Get file type - ensure it matches frontend expectations"""
-        if obj.file_type:
-            return obj.file_type.lower()
-        if obj.file and hasattr(obj.file, 'name'):
-            filename = obj.file.name
-            if '.' in filename:
-                extension = filename.split('.')[-1].lower()
-                frontend_types = [
-                    'pdf', 'doc', 'docx', 'txt', 'ppt', 'pptx', 'zip',
-                    'jpg', 'jpeg', 'png', 'gif', 'webp', 'xls', 'xlsx', 'csv'
-                ]
-                return extension if extension in frontend_types else 'unknown'
-        if obj.file_url and '.' in obj.file_url:
-            extension = obj.file_url.split('.')[-1].lower()
-            return extension
-        return 'unknown'
+    # Removed get_file_url and get_file_type, now using CharField for both
 
     def get_size(self, obj):
-        """Get file size in bytes"""
+        """
+        Get file size in bytes
+        """
         try:
             if obj.file:
                 return obj.file.size
-        except:
+        except (AttributeError, ValueError, OSError):
             pass
         return 0
 
-    def validate_file(self, value):
-        """Validate uploaded file types if file is provided"""
-        if value:  # Only validate if a file is provided
-            valid_extensions = [
-                'pdf', 'doc', 'docx', 'txt', 'ppt', 'pptx', 'zip',
-                'jpg', 'jpeg', 'png', 'gif', 'webp', 'xls', 'xlsx', 'csv'
-            ]
-            if hasattr(value, 'name') and '.' in value.name:
-                extension = value.name.split('.')[-1].lower()
-                if extension not in valid_extensions:
-                    raise serializers.ValidationError(
-                        f"Unsupported file type. Allowed: {', '.join(valid_extensions)}"
-                    )
-        return value
-
     def create(self, validated_data):
-        """Handle file upload and type detection during creation"""
+        """
+        Handle document creation with all required fields
+        """
+        # Auto-detect file type if not provided
+        file = validated_data.get('file')
+        if file and not validated_data.get('file_type'):
+            validated_data['file_type'] = self._detect_file_type_from_file(file)
+        
         instance = super().create(validated_data)
-        if instance.file and not instance.file_type:
-            instance.detect_file_type()
-            instance.save()
         return instance
+
+    def update(self, instance, validated_data):
+        """
+        Handle document updates
+        """
+        file = validated_data.get('file')
+        if file and not validated_data.get('file_type'):
+            validated_data['file_type'] = self._detect_file_type_from_file(file)
+        
+        return super().update(instance, validated_data)
+
+    def _detect_file_type_from_file(self, file):
+        """
+        Detect file type from file object
+        """
+        if hasattr(file, 'name') and '.' in file.name:
+            extension = file.name.split('.')[-1].lower()
+            valid_types = [ft[0] for ft in Document.FILE_TYPE_CHOICES]
+            return extension if extension in valid_types else 'unknown'
+        return 'unknown'
+
+    def to_internal_value(self, data):
+        """
+        Pre-process data before validation - strip whitespace from string fields
+        """
+        string_fields = ['title', 'name', 'college', 'branch', 'subject', 'description', 'file_url', 'public_id']
+        for field in string_fields:
+            if field in data and isinstance(data[field], str):
+                data[field] = data[field].strip()
+        
+        return super().to_internal_value(data)
