@@ -159,9 +159,9 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800   # 50MB
 
 # Cloudinary settings
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME', default='dthdececa'),
-    'API_KEY': config('CLOUDINARY_API_KEY', default='354378824539823'),
-    'API_SECRET': config('CLOUDINARY_API_SECRET', default='EWuAT6UFwupVh1E4TtJtILeUszY'),
+    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME', default='dj3jyvgir'),
+    'API_KEY': config('CLOUDINARY_API_KEY', default='316446613211394'),
+    'API_SECRET': config('CLOUDINARY_API_SECRET', default='-njAUsjKFpgKVBDBRp6xxX5r1zU'),
     'SECURE': True
 }
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
