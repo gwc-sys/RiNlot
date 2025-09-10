@@ -75,8 +75,8 @@ class Document(models.Model):
     }
 
     # Metadata fields
-    title = models.CharField(max_length=255)
-    name = models.CharField(max_length=255)
+    title = models.CharField(max_length=500)
+    name = models.CharField(max_length=500)
     description = models.TextField(blank=True, null=True)
 
     # File storage
@@ -87,16 +87,16 @@ class Document(models.Model):
         null=True
     )
     file_url = models.URLField(max_length=500, blank=False)   # Cloudinary secure URL
-    public_id = models.CharField(max_length=255, blank=True) # Cloudinary public_id
+    public_id = models.CharField(max_length=500, blank=True) # Cloudinary public_id
 
     # Classification
-    file_type = models.CharField(max_length=20, choices=FILE_TYPE_CHOICES)
-    college = models.CharField(max_length=100, default="General")
-    branch = models.CharField(max_length=255, default="Default Branch")
-    year = models.CharField(max_length=10, blank=True)
-    semester = models.CharField(max_length=10, blank=True)
-    subject = models.CharField(max_length=255, blank=True)
-    resource_type = models.CharField(max_length=100, blank=True)
+    file_type = models.CharField(max_length=500, choices=FILE_TYPE_CHOICES)
+    college = models.CharField(max_length=500, default="General")
+    branch = models.CharField(max_length=500, default="Default Branch")
+    year = models.CharField(max_length=500, blank=True)
+    semester = models.CharField(max_length=500, blank=True)
+    subject = models.CharField(max_length=500, blank=True)
+    resource_type = models.CharField(max_length=500, blank=True)
 
     # Timestamps
     uploaded_at = models.DateTimeField(auto_now_add=True)
