@@ -30,7 +30,6 @@ INSTALLED_APPS = [
     'cloudinary_storage',
     'rest_framework', 
     'corsheaders',
-    'rest_framework',
     'django_filters',
 
     # Local apps
