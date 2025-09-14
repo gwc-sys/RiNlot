@@ -23,7 +23,11 @@
 
 from django.conf import settings
 from django.conf.urls.static import static
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
+from .Views.dsa_views import ProblemViewSet, run_example_tests, submit_full_tests, user_progress
+
 from .Views.resourceviews import (
     ResourceListCreateView,
     FileUploadView,
@@ -36,7 +40,13 @@ from .Views.resourceviews import (
 from .Views.UserSignUpView import RegisterView, LoginView, LogoutView, me_view  
 from .Views.UserProfileView import UserProfileView, ProfilePictureUploadView
 
+router = DefaultRouter()
+router.register(r'problems', ProblemViewSet, basename='problem')
+
 urlpatterns = [
+    # DRF router endpoints
+    path('', include(router.urls)),
+
     # Authentication endpoints
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
@@ -55,6 +65,11 @@ urlpatterns = [
     path('documents/<pk>/', DocumentDetailView.as_view(), name='document-detail'),
     path('documents/<pk>/edit/', DocumentRetrieveUpdateDestroyView.as_view(), name='document-edit'),
     path('documents/<pk>/delete/', DocumentDeleteView.as_view(), name='document-delete'),
+
+    # DSA problem endpoints
+    path('run/', run_example_tests, name='run'),
+    path('submit/', submit_full_tests, name='submit'),
+    path('progress/', user_progress, name='progress'),
 ]
 
 # Serve media files during development
