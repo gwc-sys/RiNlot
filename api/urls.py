@@ -23,7 +23,7 @@
 
 from django.conf import settings
 from django.conf.urls.static import static
-from django.urls import path, include
+from django.urls import path, include, re_path
 from rest_framework.routers import DefaultRouter
 
 from .Views.dsa_views import ProblemViewSet, run_example_tests, submit_full_tests, user_progress
@@ -39,6 +39,7 @@ from .Views.resourceviews import (
 )
 from .Views.UserSignUpView import RegisterView, LoginView, LogoutView, me_view  
 from .Views.UserProfileView import UserProfileView, ProfilePictureUploadView
+from api.Views.FrontendAppView import FrontendAppView
 
 router = DefaultRouter()
 router.register(r'problems', ProblemViewSet, basename='problem')
@@ -70,6 +71,9 @@ urlpatterns = [
     path('run/', run_example_tests, name='run'),
     path('submit/', submit_full_tests, name='submit'),
     path('progress/', user_progress, name='progress'),
+
+    # Frontend app view
+    # re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
 ]
 
 # Serve media files during development
