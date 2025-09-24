@@ -26,7 +26,7 @@ from django.conf.urls.static import static
 from django.urls import path, include, re_path
 from rest_framework.routers import DefaultRouter
 
-from .Views.dsa_views import ProblemViewSet, run_example_tests, submit_full_tests, user_progress
+from .Views.dsa_problem_views import ProgressView , ProblemListView, ProblemDetailView, AdminProblemView, CommunityProblemView, AIGenerateView, RunView, SubmitView
 
 from .Views.resourceviews import (
     ResourceListCreateView,
@@ -42,7 +42,7 @@ from .Views.UserProfileView import UserProfileView, ProfilePictureUploadView
 from api.Views.FrontendAppView import FrontendAppView
 
 router = DefaultRouter()
-router.register(r'problems', ProblemViewSet, basename='problem')
+
 
 urlpatterns = [
     # DRF router endpoints
@@ -68,9 +68,14 @@ urlpatterns = [
     path('documents/<pk>/delete/', DocumentDeleteView.as_view(), name='document-delete'),
 
     # DSA problem endpoints
-    path('run/', run_example_tests, name='run'),
-    path('submit/', submit_full_tests, name='submit'),
-    path('progress/', user_progress, name='progress'),
+    path('problems/', ProblemListView.as_view(), name='problem-list'),
+    path('problems/<uuid:problem_id>/', ProblemDetailView.as_view(), name='problem-detail'),
+    path('admin/problems/', AdminProblemView.as_view(), name='admin-problems'),
+    path('community/problems/', CommunityProblemView.as_view(), name='community-problems'),
+    path('ai/generate/', AIGenerateView.as_view(), name='ai-generate'),
+    path('run/', RunView.as_view(), name='run'),
+    path('submit/', SubmitView.as_view(), name='submit'),
+    path('progress/', ProgressView.as_view(), name='progress'),
 
     # Frontend app view
     # re_path(r'^.*$', FrontendAppView.as_view(), name='frontend'),
