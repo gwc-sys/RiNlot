@@ -7,12 +7,13 @@ import logging
 from pathlib import Path
 from decouple import config
 from pytz import timezone
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security Settings
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-fhipcgf5kce18*wz5e7$cu!s59&(j%1cv7c!fcaxa4_6^13!8%')
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-fallback-key-for-dev-only')
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 # Application definition
@@ -28,7 +29,8 @@ INSTALLED_APPS = [
     # Third-party apps
     'cloudinary',
     'cloudinary_storage',
-    'rest_framework', 
+    'rest_framework',
+    'rest_framework_simplejwt',  # JWT authentication
     'corsheaders',
     'django_filters',
 
@@ -37,14 +39,14 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # CORS middleware (should be at the top)
+    'corsheaders.middleware.CorsMiddleware',
+    
     # Security middleware
     'django.middleware.security.SecurityMiddleware',
     
     # Session middleware
     'django.contrib.sessions.middleware.SessionMiddleware',
-    
-    # CORS middleware (placed before CommonMiddleware)
-    'corsheaders.middleware.CorsMiddleware',
     
     # Common middleware
     'django.middleware.common.CommonMiddleware',
@@ -85,20 +87,24 @@ TEMPLATES = [
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
+        'NAME': config('DB_NAME', default='stackhack_db'),
+        'USER': config('DB_USER', default='root'),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default=3306, cast=int),
         'OPTIONS': {
-            'ssl': {
-                'ssl_ca': BASE_DIR / "certs/ca.pem",
-                'ssl-mode': 'REQUIRED'
-            },
-            'connect_timeout': 30, 
+            'connect_timeout': 30,
         }
     }
 }
+
+# For development - SQLite fallback
+# If DEBUG and no DB_NAME provided, use local SQLite for convenience
+if DEBUG and not config('DB_NAME', default=None):
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -127,6 +133,7 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files
 MEDIA_URL = "/media/"
@@ -148,15 +155,39 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'api.authentication.CustomJWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
 }
+
+# JWT Configuration
+# SIMPLE_JWT = {
+#     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+#     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+#     'ROTATE_REFRESH_TOKENS': False,
+#     'BLACKLIST_AFTER_ROTATION': True,
+#     'UPDATE_LAST_LOGIN': True,
+#
+#     'ALGORITHM': 'HS256',
+#     'SIGNING_KEY': SECRET_KEY,
+#     'VERIFYING_KEY': None,
+#     'AUDIENCE': None,
+#     'ISSUER': None,
+#
+#     'AUTH_HEADER_TYPES': ('Bearer',),
+#     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+#     'USER_ID_FIELD': 'id',
+#     'USER_ID_CLAIM': 'user_id',
+#     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+# }
+# -----------------------------------------------------------------------------------
 
 # File upload settings
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800   # 50MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800   # 50MB
-
 
 # Cloudinary settings
 CLOUDINARY_STORAGE = {
@@ -175,6 +206,8 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '0.0.0.0',
     'stackhack.live',
+    '127.0.0.1:8000',
+    'localhost:8000',
 ]
 
 # CORS settings
@@ -184,11 +217,14 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",
+    "http://localhost:3000",
     "https://engisolution.onrender.com",
-    "http://127.0.0.1",        
-    "http://localhost",        
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
     "https://engiportal.onrender.com",
     "https://stackhack.live",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -197,51 +233,118 @@ CSRF_TRUSTED_ORIGINS = [
     "http://0.0.0.0:5173",
     "http://127.0.0.1:5173",
     "http://0.0.0.0:8000",
-    "https://stackhack.live"
+    "https://stackhack.live",
+    "http://localhost:3000",
 ]
 
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
-    'authorization', 
+    'authorization',
     'content-type',
     'dnt',
     'origin',
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'x-session-code',  # Custom header
+    'x-session-code',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
 ]
 
 # Logging configuration
-IGNORABLE_404_URLS = [
-    r'^\.well-known/appspecific/com\.chrome\.devtools\.json$',
-]
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'filters': {
-        'require_debug_false': {
-            '()': 'django.utils.log.RequireDebugFalse',
-        }
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': str(BASE_DIR / 'debug.log'),
+            'formatter': 'verbose'
         },
     },
     'loggers': {
-        'django.request': {
+        'django': {
             'handlers': ['console'],
-            'level': 'ERROR',  # Only log errors, not 404s
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['console', 'file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'api': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
             'propagate': True,
         },
     }
 }
 
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Session settings
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# CSRF settings
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Security settings for production
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    
+    # More secure settings
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
 # Utility function for time conversion
 def get_local_time(utc_time):
     """Convert UTC time to local time."""
     return timezone.localtime(utc_time)
+
+# Firebase configuration (optional - if using Firebase Admin SDK)
+FIREBASE_CONFIG = {
+    'api_key': config('FIREBASE_API_KEY', default=''),
+    'auth_domain': config('FIREBASE_AUTH_DOMAIN', default=''),
+    'project_id': config('FIREBASE_PROJECT_ID', default=''),
+}
+
+FIREBASE_SERVICE_ACCOUNT_PATH = config('FIREBASE_SERVICE_ACCOUNT_PATH', default=None)
+FIREBASE_SERVICE_ACCOUNT_JSON = config('FIREBASE_SERVICE_ACCOUNT_JSON', default=None)

@@ -1,4 +1,4 @@
-from .model.User import SessionCode
+
 from .model.User import User
 from django.db import models
 

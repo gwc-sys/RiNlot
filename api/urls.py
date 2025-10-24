@@ -23,8 +23,22 @@ from .Views.resourceviews import (
     DocumentDeleteView,
     DocumentSearchView,
 )
-from .Views.UserSignUpView import RegisterView, LoginView, LogoutView, me_view
-from .Views.UserProfileView import UserProfileView, ProfilePictureUploadView
+
+# Updated authentication views
+from .Views.UserSignUpView import (
+    RegisterView, 
+    LoginView, 
+    LogoutView, 
+    me_view,
+    FirebaseAuthView,
+    ProfileView,
+    ChangePasswordView,
+    VerifyTokenView,
+    RefreshTokenView,
+    PublicProfileView
+)
+
+# from .Views.UserProfileView import UserProfileView, ProfilePictureUploadView
 from .Views.FrontendAppView import FrontendAppView
 
 from .Views.Collaboration_views import (
@@ -104,17 +118,27 @@ urlpatterns = [
     # DRF router endpoints
     path('', include(router.urls)),
 
-    # Authentication endpoints
-    path('register/', RegisterView.as_view(), name='register'),
-    path('login/', LoginView.as_view(), name='login'),
-    path('logout/', LogoutView.as_view(), name='logout'),
-    path('me/', me_view, name='current-user'),
+    # ===== JWT Authentication Endpoints =====
+    path('auth/register/', RegisterView.as_view(), name='register'),
+    path('auth/login/', LoginView.as_view(), name='login'),
+    path('auth/logout/', LogoutView.as_view(), name='logout'),
+    path('auth/firebase-auth/', FirebaseAuthView.as_view(), name='firebase-auth'),
+    path('verify-token/', VerifyTokenView.as_view(), name='verify-token'),
+    path('refresh-token/', RefreshTokenView.as_view(), name='refresh-token'),
+    
+    # User profile endpoints (JWT compatible)
+    path('profile/', ProfileView.as_view(), name='profile'),
+    path('change-password/', ChangePasswordView.as_view(), name='change-password'),
+    path('auth/me/', me_view, name='current-user'),
+    
+    # Public user profiles
+    path('users/public/<str:username>/', PublicProfileView.as_view(), name='public-profile'),
 
-    # User profile endpoints
-    path('profile/', UserProfileView.as_view(), name='user-profile'),
-    path('profile/picture/', ProfilePictureUploadView.as_view(), name='profile-picture'),
+    # ===== Legacy/Additional Profile Endpoints (if needed) =====
+    # path('legacy/profile/', UserProfileView.as_view(), name='legacy-user-profile'),
+    # path('profile/picture/', ProfilePictureUploadView.as_view(), name='profile-picture'),
 
-    # Resource endpoints
+    # ===== Resource endpoints =====
     path('resources/', ResourceListCreateView.as_view(), name='resource-list-create'),
     path('upload/', FileUploadView.as_view(), name='file-upload'),
     path('documents/', DocumentListView.as_view(), name='document-list'),
@@ -123,7 +147,7 @@ urlpatterns = [
     path('documents/<pk>/edit/', DocumentRetrieveUpdateDestroyView.as_view(), name='document-edit'),
     path('documents/<pk>/delete/', DocumentDeleteView.as_view(), name='document-delete'),
 
-    # DSA problem endpoints
+    # ===== DSA problem endpoints =====
     path('problems/', ProblemListView.as_view(), name='problem-list'),
     path('problems/<uuid:problem_id>/', ProblemDetailView.as_view(), name='problem-detail'),
     path('admin/problems/', AdminProblemView.as_view(), name='admin-problems'),
