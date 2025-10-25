@@ -198,7 +198,7 @@ CLOUDINARY_STORAGE = {
 }
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-# Host/domain names that this site can serve
+# ✅ Allowed hosts
 ALLOWED_HOSTS = [
     'engiportal.onrender.com',
     '.onrender.com',
@@ -210,30 +210,28 @@ ALLOWED_HOSTS = [
     'localhost:8000',
 ]
 
-# CORS settings
-CORS_ALLOW_ALL_ORIGINS = True
+# ✅ CORS settings
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
+    "https://stackhack.live",
+    "https://engiportal.onrender.com",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:3000",
-    "https://engisolution.onrender.com",
     "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "https://engiportal.onrender.com",
-    "https://stackhack.live",
     "http://127.0.0.1:8000",
     "http://localhost:8000",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://engisolution.onrender.com",
+    "https://engiportal.onrender.com",
+    "https://stackhack.live",
     "http://localhost:5173",
     "http://0.0.0.0:5173",
     "http://127.0.0.1:5173",
     "http://0.0.0.0:8000",
-    "https://stackhack.live",
     "http://localhost:3000",
 ]
 

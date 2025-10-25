@@ -17,7 +17,7 @@ from ..Serializers.UserSerializer import (
     SocialLoginSerializer
 )
 from ..model.User import User
-from ..firebase_admin import auth as firebase_auth  # import the firebase_admin.auth
+from ..firebase_config import auth as firebase_auth  # import the firebase_admin.auth
 import logging
 from django.db import IntegrityError
 from django.views.decorators.csrf import csrf_exempt
